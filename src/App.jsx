@@ -71,7 +71,8 @@ function getCardImage(card){
     "D":"diamonds",
     "C":"clubs"
   };
-  return `/assets/cards/${rankMap[card.rank]}_of_${suitMap[card.suit]}.png`;
+  // Updated path to public/assets
+  return `/assets/${rankMap[card.rank]}_of_${suitMap[card.suit]}.png`;
 }
 
 export default function App(){
@@ -173,11 +174,12 @@ export default function App(){
           {trick.map((t,i)=><img key={t.card.id} src={getCardImage(t.card)} className="w-12 h-16" alt={t.card.id}/>)}
         </div>
 
-        <div className="flex justify-center gap-1 mb-2">{hands[1]?.map((c,i)=><img key={i} src="/assets/cards/back.png" className="w-10 h-14" alt="back"/>)}</div>
+        {/* AI hands - use updated path */}
+        <div className="flex justify-center gap-1 mb-2">{hands[1]?.map((c,i)=><img key={i} src="/assets/back.png" className="w-10 h-14" alt="back"/>)}</div>
 
         <div className="flex justify-between w-full">
-          <div className="flex gap-1">{hands[3]?.map((c,i)=><img key={i} src="/assets/cards/back.png" className="w-10 h-14" alt="back"/>)}</div>
-          <div className="flex gap-1">{hands[2]?.map((c,i)=><img key={i} src="/assets/cards/back.png" className="w-10 h-14" alt="back"/>)}</div>
+          <div className="flex gap-1">{hands[3]?.map((c,i)=><img key={i} src="/assets/back.png" className="w-10 h-14" alt="back"/>)}</div>
+          <div className="flex gap-1">{hands[2]?.map((c,i)=><img key={i} src="/assets/back.png" className="w-10 h-14" alt="back"/>)}</div>
         </div>
 
         <div className="flex gap-1 mt-4">{hands[0]?.map(c=><img key={c.id} src={getCardImage(c)} className="w-12 h-16 cursor-pointer" onClick={()=>playCard(0,c)} alt={c.id}/>)}</div>
