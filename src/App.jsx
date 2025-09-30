@@ -42,10 +42,11 @@ function aiChooseTrump(hand){
   return Object.entries(scores).sort((a,b)=>b[1]-a[1])[0][0];
 }
 
-// Legal cards to play
-function legalCards(hand, leadSuit){
-  const follow = hand.filter(c=>c.suit===leadSuit);
-  return follow.length?follow:hand.slice();
+// Legal cards to play (follow suit, else any)
+function legalCards(hand, leadSuit) {
+  if(!leadSuit) return hand.slice();
+  const follow = hand.filter(c => c.suit === leadSuit);
+  return follow.length ? follow : hand.slice();
 }
 
 // Card image paths
@@ -79,7 +80,7 @@ export default function App() {
 
   const log = t=>setLogs(l=>[t,...l].slice(0,50));
 
-  // Deal initial 5 cards first for bidding
+  // Deal 5 cards for bidding
   function dealFiveCards() {
     const deck = shuffle(makeDeck());
     const handsLocal = {};
@@ -90,10 +91,10 @@ export default function App() {
     setPhase("bidding");
     setCurrentPlayer(0);
     setFiveCardsDealt(true);
-    log("5 cards dealt to all players for bidding");
+    log("5 cards dealt for bidding");
   }
 
-  // After bidding, deal remaining 8 cards to each player
+  // Deal remaining 8 cards after bidding
   function dealRemainingCards() {
     const deck = shuffle(makeDeck());
     const handsLocal = {...hands};
@@ -102,10 +103,10 @@ export default function App() {
       handsLocal[i] = [...handsLocal[i], ...deck.filter(c=>!currentIds.includes(c.id)).slice(i*8,(i+1)*8)];
     }
     setHands(handsLocal);
-    log("Remaining 8 cards dealt, full hands ready");
+    log("Remaining 8 cards dealt");
   }
 
-  // Run bidding
+  // Run Bidding
   function runBidding(defaultCall=5){
     const bidsLocal={0:defaultCall};
     for(let p=1;p<4;p++){
@@ -124,110 +125,144 @@ export default function App() {
     setCurrentPlayer(high.pid);
   }
 
+  // AI plays card (legal)
   function aiPlayTurn(){
     const hand = hands[currentPlayer];
-    const card = legalCards(hand,leadSuit)[0];
-    playCard(currentPlayer,card);
+    const card = legalCards(hand, leadSuit)[0];
+    playCard(currentPlayer, card);
   }
 
-  function playCard(pid,card){
+  // Play card
+  function playCard(pid, card){
     setHands(prev=>({...prev,[pid]:prev[pid].filter(c=>c.id!==card.id)}));
     setTrick(t=>{
       const newTrick=[...t,{player:pid,card}];
       if(newTrick.length===1) setLeadSuit(card.suit);
+
       if(newTrick.length===4){
-        const lead = newTrick[0].card;
+        const lead = newTrick[0].card.suit;
+        const trumpSuit = trump.trump;
         let best=newTrick[0];
+
         newTrick.forEach(play=>{
-          if((play.card.suit===best.card.suit && cardValue(play.card)>cardValue(best.card)) || 
-             (play.card.suit===trump.trump && best.card.suit!==trump.trump)) best=play;
+          // If trump played and best not trump
+          if(play.card.suit === trumpSuit && best.card.suit !== trumpSuit){
+            best = play;
+          }
+          // Same suit (lead or trump)
+          else if(play.card.suit === best.card.suit && cardValue(play.card) > cardValue(best.card)){
+            best = play;
+          }
         });
-        const team=best.player%2===0?'teamA':'teamB';
+
+        const team = best.player % 2 === 0 ? 'teamA' : 'teamB';
         setScores(s=>({...s,[team]:s[team]+1}));
+
         setTrick([]);
         setLeadSuit(null);
         setCurrentPlayer(best.player);
       } else setCurrentPlayer((pid+1)%4);
+
       return newTrick;
     });
   }
 
+  // AI turn effect
   useEffect(()=>{
-    if(phase==='play' && players[currentPlayer].ai) setTimeout(aiPlayTurn,800);
+    if(phase==='play' && players[currentPlayer].ai) setTimeout(aiPlayTurn,1200);
   },[currentPlayer,phase]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-green-900 to-green-600 p-4 flex flex-col items-center">
-      
-      {/* Lobby / Start */}
-      {phase==='lobby' && <button className="bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-6 py-3 rounded shadow-lg text-xl" onClick={dealFiveCards}>Start Round</button>}
+    <div className="min-h-screen bg-green-900 flex flex-col items-center justify-between p-4">
 
-      {/* Bidding Phase */}
-      {phase==='bidding' && fiveCardsDealt && <div className="w-full max-w-6xl flex flex-col items-center mt-4 gap-6">
-        <h2 className="text-white text-2xl font-bold mb-2">Bidding Phase</h2>
+      {/* Lobby */}
+      {phase==='lobby' && 
+        <button className="bg-emerald-500 hover:bg-emerald-400 text-white font-bold px-8 py-4 rounded shadow-lg text-2xl" onClick={dealFiveCards}>
+          Start Round
+        </button>
+      }
 
-        <div className="flex flex-col gap-6 w-full justify-center items-center">
-          {/* AI Hands */}
-          <div className="flex gap-2 justify-center">
-            {hands[1]?.map((_,i)=><img key={i} src={backImg} className="w-16 h-24 rounded shadow-lg" alt="AI Card"/>)}
+      {/* Bidding */}
+      {phase==='bidding' && fiveCardsDealt &&
+        <div className="w-full flex flex-col items-center gap-8 mt-6">
+          <h2 className="text-white text-3xl font-bold">Bidding Phase</h2>
+
+          {/* Top AI */}
+          <div className="flex gap-4 justify-center transform -rotate-3">
+            {hands[1]?.map((_,i)=><img key={i} src={backImg} className="w-20 h-28 rounded shadow-lg" alt="AI Card" style={{transform: `rotate(${Math.random()*6-3}deg)`}}/>)}
           </div>
 
           {/* Player Hand */}
-          <div className="flex flex-wrap gap-4 justify-center mt-4">
-            {hands[0]?.map(c=>
-              <img key={c.id} src={getCardImage(c)} className="w-20 h-28 cursor-pointer transform hover:scale-110 transition" alt={c.id}/>
-            )}
+          <div className="flex flex-wrap gap-6 justify-center mt-4">
+            {hands[0]?.map(c=>{
+              const legal = legalCards(hands[0], leadSuit);
+              const isLegal = legal.some(lc => lc.id === c.id);
+              return (
+                <img key={c.id} src={getCardImage(c)} className={`w-28 h-40 cursor-pointer transform hover:scale-110 transition-all duration-300 ${isLegal ? '' : 'opacity-40 pointer-events-none'}`} 
+                  onClick={()=>isLegal && playCard(0,c)}
+                  alt={c.id}/>
+              )
+            })}
           </div>
 
           {/* Bid Buttons */}
-          <div className="mt-4 flex gap-4">
-            <button className="bg-blue-500 hover:bg-blue-400 px-4 py-2 rounded text-white font-bold" onClick={()=>runBidding(5)}>Bid 5</button>
-            <button className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded text-white font-bold" onClick={()=>runBidding(7)}>Bid 7</button>
+          <div className="mt-4 flex gap-6">
+            <button className="bg-blue-500 hover:bg-blue-400 text-white font-bold px-6 py-3 rounded shadow-lg" onClick={()=>runBidding(5)}>Bid 5</button>
+            <button className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 py-3 rounded shadow-lg" onClick={()=>runBidding(7)}>Bid 7</button>
           </div>
 
           {/* AI Bids */}
-          <div className="text-white mt-4">
+          <div className="text-white text-lg mt-4">
             {Object.entries(bids).map(([pid,v])=>(
               <div key={pid}>{pid==0?'You':`AI ${pid}`} bid: {v}</div>
             ))}
           </div>
         </div>
-      </div>}
+      }
 
       {/* Play Phase */}
-      {phase==='play' && <div className="w-full max-w-7xl flex flex-col items-center mt-6 gap-6">
+      {phase==='play' &&
+        <div className="w-full flex flex-col items-center gap-8 mt-4 relative">
+          <div className="text-white text-2xl font-bold mb-2">Trump: {trump.trump} | Scores - Team A: {scores.teamA} Team B: {scores.teamB}</div>
 
-        <div className="text-white text-xl font-bold mb-2">Trump: {trump.trump} | Scores - Team A: {scores.teamA} Team B: {scores.teamB}</div>
+          {/* Top AI */}
+          <div className="flex gap-4 justify-center mt-4">
+            {hands[1]?.map((_,i)=><img key={i} src={backImg} className="w-20 h-28 rounded shadow-lg" alt="AI Card" style={{transform: `rotate(${Math.random()*6-3}deg)`}}/>)}
+          </div>
 
-        {/* Top AI (player 1) */}
-        <div className="flex gap-4 justify-center">
-          {hands[1]?.map((_,i)=><img key={i} src={backImg} className="w-16 h-24 rounded shadow-lg" alt="AI Card"/>)}
+          {/* Play Table */}
+          <div className="relative w-full flex justify-center items-center mt-8 h-48">
+            {trick.map((t,i)=>(
+              <img key={t.card.id} src={getCardImage(t.card)} className="w-28 h-40 rounded shadow-2xl absolute transition-transform duration-700" 
+                style={{transform: `translate(${(i-1.5)*80}px,0px) rotate(${Math.random()*6-3}deg)`}} 
+                alt={t.card.id}/>
+            ))}
+          </div>
+
+          {/* Bottom AI */}
+          <div className="flex justify-between w-full px-20 mt-8">
+            <div className="flex gap-4">{hands[3]?.map((_,i)=><img key={i} src={backImg} className="w-20 h-28 rounded shadow-lg" alt="AI Card" style={{transform: `rotate(${Math.random()*6-3}deg)`}}/>)}</div>
+            <div className="flex gap-4">{hands[2]?.map((_,i)=><img key={i} src={backImg} className="w-20 h-28 rounded shadow-lg" alt="AI Card" style={{transform: `rotate(${Math.random()*6-3}deg)`}}/>)}</div>
+          </div>
+
+          {/* Player Hand */}
+          <div className="flex gap-6 mt-8 flex-wrap justify-center">
+            {hands[0]?.map(c=>{
+              const legal = legalCards(hands[0], leadSuit);
+              const isLegal = legal.some(lc => lc.id === c.id);
+              return (
+                <img key={c.id} src={getCardImage(c)} className={`w-28 h-40 cursor-pointer transform hover:scale-110 transition-all duration-300 ${isLegal ? '' : 'opacity-40 pointer-events-none'}`} 
+                  onClick={()=>isLegal && playCard(0,c)}
+                  alt={c.id}/>
+              )
+            })}
+          </div>
         </div>
-
-        {/* Middle Play Table */}
-        <div className="flex justify-center gap-8 mt-4">
-          {trick.map(t=>
-            <img key={t.card.id} src={getCardImage(t.card)} className="w-24 h-36 rounded shadow-xl" alt={t.card.id}/>
-          )}
-        </div>
-
-        {/* Bottom AI (player 2 & 3) */}
-        <div className="flex justify-between w-full px-16 mt-6">
-          <div className="flex gap-4">{hands[3]?.map((_,i)=><img key={i} src={backImg} className="w-16 h-24 rounded shadow-lg" alt="AI Card"/>)}</div>
-          <div className="flex gap-4">{hands[2]?.map((_,i)=><img key={i} src={backImg} className="w-16 h-24 rounded shadow-lg" alt="AI Card"/>)}</div>
-        </div>
-
-        {/* Player Hand */}
-        <div className="flex gap-4 mt-6 flex-wrap justify-center">
-          {hands[0]?.map(c=>
-            <img key={c.id} src={getCardImage(c)} className="w-24 h-36 cursor-pointer transform hover:scale-110 transition" onClick={()=>playCard(0,c)} alt={c.id}/>
-          )}
-        </div>
-      </div>}
+      }
 
       {/* Logs */}
-      <div className="mt-6 max-h-40 overflow-auto text-white p-4 bg-black/40 w-full max-w-7xl rounded shadow-inner">
-        <h3 className="font-bold mb-2">Logs:</h3>
+      <div className="mt-6 max-h-48 overflow-auto text-white p-4 bg-black/40 w-full rounded shadow-inner">
+        <h3 className="font-bold mb-2 text-lg">Logs:</h3>
         {logs.map((l,i)=><div key={i}>{l}</div>)}
       </div>
     </div>
